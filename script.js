@@ -271,14 +271,13 @@ const handleDeleteTeam = () => {
     return;
   }
 
-  if (confirm(`Are you sure you want to delete the "${teamName}" team? This cannot be undone.`)) {
-    const teams = getSavedTeams();
-    delete teams[teamName]; // Remove the team from the object
-    saveTeams(teams);
-    
-    alert(`Team "${teamName}" deleted.`);
-    populateTeamDropdown(); // Refresh the dropdown list
+  const handleAddTimezone = () => {
+  if (!isPro && selectorsContainer.children.length >= 3) {
+    showUpgradeModal("Add more than 3 timezones with Pro!");
+    return;
   }
+  createTimezoneSelector({ tz: 'UTC', start: '09:00', end: '17:00' });
+  renderComparison();
 };
 
   // ===================================================
@@ -302,14 +301,8 @@ const initialize = () => {
   }
   
   // --- Step 2: Set up all event listeners ---
-  addTzBtn.addEventListener('click', () => {
-    if (!isPro && selectorsContainer.children.length >= 3) {
-      showUpgradeModal("Add more than 3 timezones with Pro!");
-      return;
-    }
-    createTimezoneSelector({ tz: 'UTC', start: '09:00', end: '17:00' });
-    renderComparison();
-  });
+  // --- THIS IS THE CORRECTED BLOCK ---
+  addTzBtn.addEventListener('click', handleAddTimezone);
 
   modalCloseBtn.addEventListener('click', hideUpgradeModal);
   goProButtons.forEach(btn => btn.addEventListener('click', (e) => {

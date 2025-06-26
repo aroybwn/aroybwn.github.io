@@ -154,3 +154,63 @@ tr.overlap-row .time-bar { box-shadow: inset 0 0 0 2px var(--secondary-color); f
   border-radius: 4px;
   font-size: 1rem;
 }
+
+/* Style for the new "Team Presets" Pro feature */
+
+/* This rule hides the entire section if the user is not Pro */
+body.free-version .pro-feature {
+  display: none;
+}
+
+#team-presets-container {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+
+#team-presets-container h3 {
+  text-align: center;
+  margin: 0 0 1rem 0;
+  color: #333;
+}
+
+.pro-badge-text {
+  background: var(--pro-color);
+  color: #333;
+  font-size: 0.8rem;
+  padding: 3px 8px;
+  border-radius: 10px;
+  vertical-align: middle;
+}
+
+.presets-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+#load-team-select {
+  padding: 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  min-width: 200px;
+}
+
+.preset-btn {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: #6c757d;
+  color: white;
+}
+.preset-btn:hover {
+  opacity: 0.85;
+}
+.preset-btn.danger {
+  background-color: #dc3545;
+}
