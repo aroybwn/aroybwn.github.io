@@ -26,6 +26,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const datePicker = document.getElementById('date-picker'); // <-- ADD THIS LINE
 
+  // ... after the other elements
+const saveTeamBtn = document.getElementById('save-team-btn');
+const loadTeamSelect = document.getElementById('load-team-select');
+const deleteTeamBtn = document.getElementById('delete-team-btn');
+
   // --- MODAL FUNCTIONS ---
   const showUpgradeModal = (message) => {
     modalText.textContent = message;
@@ -190,76 +195,170 @@ const updateURL = () => {
   // Use replaceState to avoid cluttering browser history
   history.replaceState(null, '', `?${params.toString()}`);
 }
-  // --- INITIALIZATION & EVENT LISTENERS ---
-  const initialize = () => {
-    // Hide pro badges if the user is pro
-    if (isPro) {
-      document.querySelectorAll('.pro-badge').forEach(b => b.style.display = 'none');
-      document.getElementById('go-pro-btn').style.display = 'none';
-      document.getElementById('legend').innerHTML = `
-        <div class="legend-item"><span class="legend-color" style="background: var(--work-bg);"></span> Working</div>
-        <div class="legend-item"><span class="legend-color" style="background: var(--shoulder-bg);"></span> Shoulder</div>
-        <div class="legend-item"><span class="legend-color" style="background: var(--night-bg);"></span> Night</div>
-        <div class="legend-item"><span class="legend-color" style="box-shadow: inset 0 0 0 2px var(--secondary-color); border: 1px solid #ddd;"></span> Overlap</div>
-      `;
-    } else {
-        document.getElementById('legend').innerHTML = `<div class="legend-item"><span class="legend-color" style="background: var(--highlight-color); border: 1px solid #ccc;"></span> Overlap (9am-5pm)</div>`;
-    }
-    
-    datePicker.value = new Date().toISOString().split('T')[0]; // <-- ADD THIS LINE
-    datePicker.addEventListener('change', renderComparison); // <-- ADD THIS LINE
+// ===================================================
+//      TEAM PRESETS LOGIC (PRO FEATURE)
+// ===================================================
 
-    // --- Load initial timezones from URL (Pro) or use defaults ---
-const params = new URLSearchParams(window.location.search);
-let initialTimezones = [];
+const getSavedTeams = () => {
+  // Get teams from localStorage, or return an empty object if none exist
+  return JSON.parse(localStorage.getItem('timeCompareTeams')) || {};
+};
 
-if (params.has('tz1')) {
-  // If URL has params, check if user is Pro
-  if (isPro) {
-      params.forEach((value, key) => {
-          if (key.startsWith('tz')) {
-              const [tz, start, end] = value.split('_');
-              if(tz && start && end) initialTimezones.push({ tz, start, end });
-          }
-      });
-  } else {
-      // Tease the user if they land on a pro link
-      showUpgradeModal("This shared link uses Pro features. View it in a simplified mode or upgrade for the full experience.");
+const saveTeams = (teams) => {
+  // Save the teams object back to localStorage as a string
+  localStorage.setItem('timeCompareTeams', JSON.stringify(teams));
+};
+
+const populateTeamDropdown = () => {
+  if (!isPro) return; // This is a Pro feature
+  const teams = getSavedTeams();
+  // Clear existing options (but keep the first "-- Load a Team --" option)
+  loadTeamSelect.innerHTML = '<option value="">— Load a Team —</option>';
+  // Add an option for each saved team
+  for (const teamName in teams) {
+    const option = document.createElement('option');
+    option.value = teamName;
+    option.textContent = teamName;
+    loadTeamSelect.appendChild(option);
   }
-} 
+};
 
-// If no params were loaded (either no params in URL or user is not Pro), use defaults
-if (initialTimezones.length === 0) {
+const handleSaveTeam = () => {
+  const teamName = prompt("Enter a name for this team preset:");
+  if (!teamName) return; // User cancelled or entered nothing
+
+  // Get the current configuration from the DOM
+  const currentConfig = Array.from(selectorsContainer.children).map(group => ({
+    tz: group.querySelector('select').value,
+    start: group.querySelector('input[type="time"]:first-of-type').value,
+    end: group.querySelector('input[type="time"]:last-of-type').value,
+  }));
+
+  if (currentConfig.length === 0) {
+    alert("Please add at least one timezone before saving a team.");
+    return;
+  }
+
+  const teams = getSavedTeams();
+  teams[teamName] = currentConfig; // Add or update the team
+  saveTeams(teams);
+
+  alert(`Team "${teamName}" saved!`);
+  populateTeamDropdown(); // Refresh the dropdown list
+};
+
+const handleLoadTeam = () => {
+  const teamName = loadTeamSelect.value;
+  if (!teamName) return; // No team selected
+
+  const teams = getSavedTeams();
+  const teamConfig = teams[teamName];
+
+  if (!teamConfig) return; // Should not happen, but a good safe check
+
+  // Clear all current timezone selectors from the UI
+  selectorsContainer.innerHTML = '';
+  // Re-create the selectors from the saved configuration
+  teamConfig.forEach(tzData => createTimezoneSelector(tzData));
+  
+  // The table will re-render automatically because createTimezoneSelector calls renderComparison
+};
+
+const handleDeleteTeam = () => {
+  const teamName = loadTeamSelect.value;
+  if (!teamName) {
+    alert("Please select a team from the dropdown to delete.");
+    return;
+  }
+
+  if (confirm(`Are you sure you want to delete the "${teamName}" team? This cannot be undone.`)) {
+    const teams = getSavedTeams();
+    delete teams[teamName]; // Remove the team from the object
+    saveTeams(teams);
+    
+    alert(`Team "${teamName}" deleted.`);
+    populateTeamDropdown(); // Refresh the dropdown list
+  }
+};
+
+  // ===================================================
+//      INITIALIZATION & EVENT LISTENERS
+// ===================================================
+
+const initialize = () => {
+  // --- Step 1: Set up the page based on Free vs. Pro ---
+  if (isPro) {
+    document.body.classList.add('pro-version');
+    document.querySelectorAll('.pro-badge').forEach(b => b.style.display = 'none');
+    document.getElementById('legend').innerHTML = `
+      <div class="legend-item"><span class="legend-color" style="background: var(--work-bg);"></span> Working</div>
+      <div class="legend-item"><span class="legend-color" style="background: var(--shoulder-bg);"></span> Shoulder</div>
+      <div class="legend-item"><span class="legend-color" style="background: var(--night-bg);"></span> Night</div>
+      <div class="legend-item"><span class="legend-color" style="box-shadow: inset 0 0 0 2px var(--secondary-color); border: 1px solid #ddd;"></span> Overlap</div>
+    `;
+  } else {
+    document.body.classList.add('free-version');
+    document.getElementById('legend').innerHTML = `<div class="legend-item"><span class="legend-color" style="background: var(--highlight-color); border: 1px solid #ccc;"></span> Overlap (9am-5pm)</div>`;
+  }
+  
+  // --- Step 2: Set up all event listeners ---
+  addTzBtn.addEventListener('click', () => {
+    if (!isPro && selectorsContainer.children.length >= 3) {
+      showUpgradeModal("Add more than 3 timezones with Pro!");
+      return;
+    }
+    createTimezoneSelector({ tz: 'UTC', start: '09:00', end: '17:00' });
+    renderComparison();
+  });
+
+  modalCloseBtn.addEventListener('click', hideUpgradeModal);
+  goProButtons.forEach(btn => btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    showUpgradeModal('Upgrade to unlock all features!');
+  }));
+  
+  copyBtn.addEventListener('click', () => isPro ? alert("Copied!") : showUpgradeModal('Copy to clipboard is a Pro feature!'));
+  icsBtn.addEventListener('click', () => isPro ? alert("Generated .ics!") : showUpgradeModal('Generating .ics files is a Pro feature!'));
+  htmlBtn.addEventListener('click', () => alert("Exported as HTML!"));
+
+  datePicker.addEventListener('change', renderComparison);
+  datePicker.value = new Date().toISOString().split('T')[0];
+
+  // Add Team Preset event listeners ONLY if user is Pro
+  if (isPro) {
+    saveTeamBtn.addEventListener('click', handleSaveTeam);
+    loadTeamSelect.addEventListener('change', handleLoadTeam);
+    deleteTeamBtn.addEventListener('click', handleDeleteTeam);
+  }
+
+  // --- Step 3: Load the initial view ---
+  // This part is unchanged from the previous sharable link update
+  const params = new URLSearchParams(window.location.search);
+  let initialTimezones = [];
+  if (params.has('tz1') && isPro) {
+    params.forEach((value, key) => {
+      if (key.startsWith('tz')) {
+        const [tz, start, end] = value.split('_');
+        if(tz && start && end) initialTimezones.push({ tz, start, end });
+      }
+    });
+  }
+  if (initialTimezones.length === 0) {
     initialTimezones = [
       { tz: 'America/New_York', start: '09:00', end: '17:00' },
       { tz: 'Europe/London', start: '09:00', end: '17:00' },
       { tz: 'Asia/Tokyo', start: '09:00', end: '17:00' }
     ];
-}
+  }
+  initialTimezones.forEach(tzData => createTimezoneSelector(tzData));
 
-initialTimezones.forEach(tzData => createTimezoneSelector(tzData));
-    renderComparison();
+  // --- Step 4: Final render and setup ---
+  if (isPro) {
+    populateTeamDropdown(); // Populate the dropdown with any saved teams
+  }
+  renderComparison(); // Perform the initial render
+};
 
-    // Event Listeners for buttons
-    addTzBtn.addEventListener('click', () => {
-      if (!isPro && selectorsContainer.children.length >= 3) {
-        showUpgradeModal("Add more than 3 timezones with Pro!");
-        return;
-      }
-      createTimezoneSelector({ tz: 'UTC', start: '09:00', end: '17:00' });
-      renderComparison();
-    });
 
-    modalCloseBtn.addEventListener('click', hideUpgradeModal);
-    goProButtons.forEach(btn => btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        showUpgradeModal('Upgrade to unlock all features!');
-    }));
-    
-    copyBtn.addEventListener('click', () => isPro ? alert("Copied!") : showUpgradeModal('Copy to clipboard is a Pro feature!'));
-    icsBtn.addEventListener('click', () => isPro ? alert("Generated .ics!") : showUpgradeModal('Generating .ics files is a Pro feature!'));
-    htmlBtn.addEventListener('click', () => alert("Exported as HTML!"));
-  };
-
-  initialize();
-});
+// --- The Rest of Your Code ---
+// (The `initialize();` call at the very end of the file stays the same)
