@@ -3,7 +3,7 @@
 //      !!! CONTROL THE APP VERSION HERE !!!
 //      Set to 'true' to simulate the Pro version.
 //
-const isPro = true;
+const isPro = false;
 //
 // ===================================================
 
